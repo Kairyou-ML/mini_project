@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import os
-import matplotlib.pyplot as plt  # or switch to Plotly 
+import matplotlib.pyplot as plt
 
 # ==== APP CONFIG ====
 st.set_page_config(page_title="✅ To-Do List App", page_icon="📝", layout="centered")
@@ -27,7 +27,7 @@ if "tasks" not in st.session_state:
 
 tasks = st.session_state.tasks
 
-#  ADD NEW TASK 
+# ADD NEW TASK 
 with st.form("add_task_form"):
     new_task = st.text_input("✏️ Enter a new task:")
     submitted = st.form_submit_button("Add Task ➕")
@@ -35,13 +35,13 @@ with st.form("add_task_form"):
         tasks.append({"name": new_task, "done": False})
         save_tasks(tasks)
         st.success(f"Added: {new_task}")
-        st.experimental_rerun()
+        st.rerun()
 
 st.divider()
 
 # TASK LIST 
 if tasks:
-    st.subheader("Your Tasks")
+    st.subheader("📋 Your Tasks")
 
     for i, task in enumerate(tasks):
         cols = st.columns([0.1, 0.7, 0.2])
@@ -54,21 +54,21 @@ if tasks:
             text_style = "~~" if task["done"] else ""
             st.markdown(f"{text_style}{task['name']}{text_style}")
         with cols[2]:
-            if st.button(" Delete", key=f"delete_{i}"):
+            if st.button("🗑️ Delete", key=f"delete_{i}"):
                 tasks.pop(i)
                 save_tasks(tasks)
-                st.experimental_rerun()
+                st.rerun()
 
     if st.button("♻️ Clear all tasks"):
         tasks.clear()
         save_tasks(tasks)
-        st.experimental_rerun()
+        st.rerun()
 else:
     st.info("No tasks yet. Add your first one above!")
 
 # PROGRESS CHART 
 st.divider()
-st.subheader(" Progress Overview")
+st.subheader("📊 Progress Overview")
 
 if tasks:
     total = len(tasks)
@@ -80,14 +80,14 @@ if tasks:
 
     st.write(f"**Completed:** {done}/{total} ({progress*100:.1f}%)")
 
-    #  Matplotlib Chart 
+    # Matplotlib Chart 
     labels = ['Completed', 'Pending']
     sizes = [done, pending]
     colors = ['#4CAF50', '#F44336']
 
     fig, ax = plt.subplots()
     ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-    ax.axis('equal')  # Equal aspect ratio ensures the pie chart is circular.
+    ax.axis('equal')
     st.pyplot(fig)
 else:
     st.info("No data available for the chart.")
