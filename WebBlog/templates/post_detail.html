@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  {% if post.image %}
+    <img src="{{ url_for('static', filename='upload/' ~ post['image']) }}" alt="Post Image" style="max-width: 100%; border-radius: 10px;">
+  {% endif %}
+  <div class="card-body">
+    <h3>{{ post.title }}</h3>
+    <p class="text-muted small">By {{ post.username }}</p>
+    <p>{{ post.content }}</p>
+  </div>
+</div>
+
+<h4>Comments</h4>
+
+{% if session.username %}
+<form method="POST" class="mb-3">
+  <div class="mb-3">
+    <textarea name="comment" class="form-control" rows="3" placeholder="Write a comment..." required></textarea>
+  </div>
+  <button type="submit" class="btn btn-dark">Submit</button>
+</form>
+{% else %}
+<p><a href="/login">Login</a> to leave a comment.</p>
+{% endif %}
+
+{% if comments %}
+  <ul class="list-group">
+    {% for comment in comments %}
+      <li class="list-group-item">
+        <strong>{{ comment.username }}</strong>: {{ comment.content }}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No comments yet.</p>
+{% endif %}
+{% endblock %}

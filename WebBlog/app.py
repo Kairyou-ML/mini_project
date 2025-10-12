@@ -1,163 +1,195 @@
-
-import sqlite3, os, hashlib
+import os
+import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from werkzeug.utils import secure_filename
+
 
 app = Flask(__name__)
-app.secret_key = '123345'
-DB_FILE = 'blog.db'
+app.secret_key = 'supersecretkey'
+DATABASE = 'blog.db'
+UPLOAD_FOLDER = 'static/upload' 
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Init database
 def init_db():
-    with sqlite3.connect(DB_FILE) as conn:
+    with sqlite3.connect(DATABASE) as conn:
         with open('schema.sql', 'r') as f:
             conn.executescript(f.read())
 
-
-
-# DATABASE SETUP 
-def init_db():
-    if not os.path.exists(DB_FILE):
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        username TEXT UNIQUE NOT NULL,
-                        password TEXT NOT NULL,
-                        role TEXT DEFAULT 'user'
-                    )''')
-        c.execute('''CREATE TABLE posts (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        title TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        author_id INTEGER,
-                        FOREIGN KEY (author_id) REFERENCES users(id)
-                    )''')
-        conn.commit()
-        conn.close()
-
 def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+@app.route('/initdb')
+def initdb():
+    init_db()
+    return "Database initialized successfully!"
 
-# AUTH ROUTES 
-@app.route('/register', methods=('GET', 'POST'))
+# Trang chủ 
+@app.route('/')
+def index():
+    conn = get_db_connection()
+    posts = conn.execute(
+        'SELECT posts.*, users.username FROM posts JOIN users ON posts.user_id = users.id ORDER BY posts.id DESC'
+    ).fetchall()
+    conn.close()
+    return render_template('index.html', posts=posts)
+
+# Register
+@app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
-        password = hash_password(request.form['password'])
+        password = request.form['password']
         conn = get_db_connection()
         try:
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+            conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
             conn.commit()
-            conn.close()
+            flash('Registration successful! Please log in.')
             return redirect(url_for('login'))
         except sqlite3.IntegrityError:
-            return render_template('register.html', error="Username already exists.")
+            flash('Username already exists!')
+        finally:
+            conn.close()
     return render_template('register.html')
 
-@app.route('/login', methods=('GET', 'POST'))
+# Login
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
-        password = hash_password(request.form['password'])
+        password = request.form['password']
         conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE username=? AND password=?', (username, password)).fetchone()
         conn.close()
         if user:
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role'] = user['role']
             return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error="Invalid credentials.")
+        flash('Invalid credentials')
     return render_template('login.html')
 
+# Logout
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# BLOG ROUTES
-@app.route('/')
-def index():
-    conn = get_db_connection()
-    posts = conn.execute('''
-        SELECT posts.*, users.username 
-        FROM posts 
-        JOIN users ON posts.author_id = users.id 
-        ORDER BY posts.id DESC
-    ''').fetchall()
-    conn.close()
-    return render_template('index.html', posts=posts)
-
-@app.route('/create', methods=('GET', 'POST'))
-def create():
+# Create
+@app.route('/create', methods=['GET', 'POST'])
+def create_post():
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        author_id = session['user_id']
-
+        image = None
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                image = filename
         conn = get_db_connection()
-        conn.execute("INSERT INTO posts (title, content, author_id) VALUES (?, ?, ?)", (title, content, author_id))
+        conn.execute(
+            'INSERT INTO posts (title, content, image, user_id) VALUES (?, ?, ?, ?)',
+            (title, content, image, session['user_id'])
+        )
         conn.commit()
         conn.close()
+        flash('Post created successfully!')
         return redirect(url_for('index'))
-
     return render_template('create.html')
 
-@app.route('/edit/<int:id>', methods=('GET', 'POST'))
-def edit(id):
+# Xem chi tiết bài viết + bình luận 
+@app.route('/post/<int:post_id>', methods=['GET', 'POST'])
+def post_detail(post_id):
+    conn = get_db_connection()
+    post = conn.execute(
+        'SELECT posts.*, users.username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?',
+        (post_id,)
+    ).fetchone()
+
+    if request.method == 'POST' and 'user_id' in session:
+        content = request.form['comment']
+        conn.execute(
+            'INSERT INTO comments (content, post_id, user_id) VALUES (?, ?, ?)',
+            (content, post_id, session['user_id'])
+        )
+        conn.commit()
+
+    comments = conn.execute(
+        'SELECT comments.*, users.username FROM comments JOIN users ON comments.user_id = users.id WHERE post_id = ?',
+        (post_id,)
+    ).fetchall()
+
+    conn.close()
+    return render_template('post_detail.html', post=post, comments=comments)
+
+# Edit
+@app.route('/edit/<int:post_id>', methods=['GET', 'POST'])
+def edit_post(post_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
     conn = get_db_connection()
-    post = conn.execute("SELECT * FROM posts WHERE id = ?", (id,)).fetchone()
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
 
     if not post:
-        return "Post not found", 404
+        flash('Post not found!')
+        return redirect(url_for('index'))
 
-    # Only author or admin can edit
-    if post['author_id'] != session['user_id'] and session.get('role') != 'admin':
-        return "Access denied", 403
+    if post['user_id'] != session['user_id']:
+        flash('You are not authorized to edit this post!')
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        conn.execute("UPDATE posts SET title = ?, content = ? WHERE id = ?", (title, content, id))
+        image = post['image']
+
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                image = filename
+
+        conn.execute(
+            'UPDATE posts SET title=?, content=?, image=? WHERE id=?',
+            (title, content, image, post_id)
+        )
         conn.commit()
         conn.close()
-        return redirect(url_for('index'))
+        flash('Post updated successfully!')
+        return redirect(url_for('post_detail', post_id=post_id))
 
     conn.close()
     return render_template('edit.html', post=post)
 
-@app.route('/delete/<int:id>')
-def delete(id):
+# Delete
+@app.route('/delete/<int:post_id>', methods=['POST'])
+def delete_post(post_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
     conn = get_db_connection()
-    post = conn.execute("SELECT * FROM posts WHERE id = ?", (id,)).fetchone()
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
 
-    if not post:
-        return "Post not found", 404
+    if post and post['user_id'] == session['user_id']:
+        conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+        conn.commit()
+        flash('Post deleted successfully!')
+    else:
+        flash('You are not authorized to delete this post.')
 
-    # Only author or admin can delete
-    if post['author_id'] != session['user_id'] and session.get('role') != 'admin':
-        return "Access denied", 403
-
-    conn.execute("DELETE FROM posts WHERE id = ?", (id,))
-    conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
-# MAIN
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)

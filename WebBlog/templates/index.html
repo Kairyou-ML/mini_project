@@ -1,17 +1,29 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<h1>📝 Blog Posts</h1>
-{% for post in posts %}
-<div class="post">
-    <h2>{{ post['title'] }}</h2>
-    <p>{{ post['content'] }}</p>
-    <p class="author">By <b>{{ post['username'] }}</b></p>
-    {% if session.get('user_id') == post['author_id'] or session.get('role') == 'admin' %}
-        <a href="{{ url_for('edit', id=post['id']) }}">Edit</a> |
-        <a href="{{ url_for('delete', id=post['id']) }}" onclick="return confirm('Delete this post?')">Delete</a>
-    {% endif %}
-</div>
+<h2 class="mb-4">Latest Posts</h2>
+
+{% if session.username %}
+  <a href="/create" class="btn btn-primary mb-3">+ Create New Post</a>
+{% endif %}
+
+{% if posts %}
+  <div class="row">
+    {% for post in posts %}
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+          {% if post.image %}
+            <img src="{{ url_for('static', filename='upload/' ~ post['image']) }}" alt="Post Image" style="max-width: 100%; border-radius: 10px;">
+          {% endif %}
+          <div class="card-body">
+            <h5 class="card-title">{{ post.title }}</h5>
+            <p class="card-text text-muted small">By {{ post.username }}</p>
+            <a href="{{ url_for('post_detail', post_id=post.id) }}" class="btn btn-outline-dark btn-sm">Read More</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
 {% else %}
-<p>No posts yet. <a href="{{ url_for('create') }}">Write one!</a></p>
-{% endfor %}
+  <p>No posts yet. Be the first to write one!</p>
+{% endif %}
 {% endblock %}
