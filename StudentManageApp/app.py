@@ -1,3 +1,10 @@
+## Class Student (OOP)
+## CRUD (Add / Edit / Delete students)
+## GPA auto-calculation
+## Ranking table
+## GPA progress chart using Plotly
+## Persistent storage using JSON
+
 ## Student Class
 ##│
 ##├── attributes: id, name, scores, gpa
@@ -15,119 +22,122 @@
 import streamlit as st
 import json
 import os
+import plotly.express as px
 
-# ================
-# CLASS DEFINITION
-# ================
+# ---------- Student Class ----------
 class Student:
-    def __init__(self, student_id, name, scores):
-        self.student_id = student_id
+    def __init__(self, name, age, student_id, grades=None, gpa=0.0):
         self.name = name
-        self.scores = scores
-        self.gpa = self.calculate_gpa()
+        self.age = age
+        self.student_id = student_id
+        self.grades = grades or []
+        self.gpa = gpa
 
     def calculate_gpa(self):
-        if not self.scores:
-            return 0.0
-        return round(sum(self.scores.values()) / len(self.scores), 2)
+        if not self.grades:
+            self.gpa = 0.0
+        else:
+            self.gpa = round(sum(self.grades) / len(self.grades), 2)
 
     def to_dict(self):
         return {
-            "student_id": self.student_id,
             "name": self.name,
-            "scores": self.scores,
-            "gpa": self.gpa
+            "age": self.age,
+            "student_id": self.student_id,
+            "grades": self.grades,
+            "gpa": self.gpa,
         }
 
-# =============
-# FILE HANDLING
-# =============
-DATA_FILE = "students.json"
+#  Utility Functions 
+DATA_FILE = "students_data.json"
 
 def load_students():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(DATA_FILE, "r") as f:
             data = json.load(f)
-            return [Student(**d) for d in data]
+            return [Student(**item) for item in data]
     return []
 
 def save_students(students):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump([s.to_dict() for s in students], f, indent=4, ensure_ascii=False)
+    with open(DATA_FILE, "w") as f:
+        json.dump([s.to_dict() for s in students], f, indent=4)
 
-# ============
-# STREAMLIT UI
-# ============
-st.set_page_config(page_title="🎓 Student Manager", page_icon="📚", layout="centered")
-st.title("🎓 Student Management System")
+#  Streamlit UI 
+st.set_page_config(page_title="Student Management System", page_icon="🎓", layout="centered")
+st.title("Student Management System")
 
-# Load data into session
-if "students" not in st.session_state:
-    st.session_state.students = load_students()
+students = load_students()
 
-students = st.session_state.students
+# Sidebar menu
+menu = st.sidebar.radio("Menu", ["Add Student", "View Students", "GPA Ranking", "Statistics"])
 
-# --- Add Student 
-st.subheader("➕ Add a new student")
+#  Add Student 
+if menu == "Add Student":
+    st.subheader("Add New Student")
 
-with st.form("add_student_form"):
+    name = st.text_input("Name")
+    age = st.number_input("Age", min_value=1, max_value=100)
     student_id = st.text_input("Student ID")
-    name = st.text_input("Full Name")
+    grades_str = st.text_input("Enter grades separated by commas (e.g., 8.0, 7.5, 9.0)")
 
-    math = st.number_input("Math", 0.0, 10.0, step=0.1)
-    english = st.number_input("English", 0.0, 10.0, step=0.1)
-    science = st.number_input("Science", 0.0, 10.0, step=0.1)
-
-    submitted = st.form_submit_button("Add Student")
-
-    if submitted and student_id and name:
-        new_student = Student(student_id, name, {
-            "Math": math,
-            "English": english,
-            "Science": science
-        })
-        students.append(new_student)
-        save_students(students)
-        st.success(f"✅ Added student {name} (GPA: {new_student.gpa})")
-        st.experimental_rerun()
-
-st.divider()
-
-# --- Display Students
-st.subheader("📋 Student List & GPA Ranking")
-
-if students:
-    # Sort by GPA descending
-    students_sorted = sorted(students, key=lambda s: s.gpa, reverse=True)
-
-    data = [{
-        "Rank": i + 1,
-        "ID": s.student_id,
-        "Name": s.name,
-        "Math": s.scores["Math"],
-        "English": s.scores["English"],
-        "Science": s.scores["Science"],
-        "GPA": s.gpa
-    } for i, s in enumerate(students_sorted)]
-
-    st.dataframe(data, use_container_width=True)
-
-    # Option to delete a student
-    st.subheader("🗑️ Delete a student")
-    del_id = st.text_input("Enter Student ID to delete")
-    if st.button("Delete"):
-        found = next((s for s in students if s.student_id == del_id), None)
-        if found:
-            students.remove(found)
+    if st.button("Add Student"):
+        if name and student_id:
+            grades = [float(x.strip()) for x in grades_str.split(",") if x.strip()]
+            student = Student(name, age, student_id, grades)
+            student.calculate_gpa()
+            students.append(student)
             save_students(students)
-            st.success(f"Deleted student {found.name}")
-            st.experimental_rerun()
+            st.success(f"Student '{name}' added successfully!")
+            st.rerun()
         else:
-            st.error("No student found with that ID.")
-else:
-    st.info("No student data yet. Add your first student above!")
+            st.warning("Please enter both name and student ID!")
 
-st.divider()
-if st.button("💾 Save & Reload"):
-    save_students(students)
-    st.experimental_rerun()
+#  View Students 
+elif menu == "View Students":
+    st.subheader("Student List")
+
+    if not students:
+        st.info("No students found. Add new students first.")
+    else:
+        for i, s in enumerate(students):
+            with st.expander(f"{s.name} ({s.student_id})"):
+                st.write(f"**Age:** {s.age}")
+                st.write(f"**Grades:** {s.grades}")
+                st.write(f"**GPA:** {s.gpa}")
+                col1, col2 = st.columns(2)
+
+                if col1.button(f"🗑️ Delete {s.name}", key=f"del_{i}"):
+                    students.pop(i)
+                    save_students(students)
+                    st.success(f"Deleted student {s.name}")
+                    st.rerun()
+
+                if col2.button(f"✏️ Recalculate GPA", key=f"edit_{i}"):
+                    s.calculate_gpa()
+                    save_students(students)
+                    st.success(f"GPA recalculated for {s.name}")
+                    st.rerun()
+
+#  GPA Ranking 
+elif menu == "GPA Ranking":
+    st.subheader(" GPA Ranking")
+    if not students:
+        st.info("No students to rank yet.")
+    else:
+        sorted_students = sorted(students, key=lambda s: s.gpa, reverse=True)
+        ranking_data = [{"Rank": i+1, "Name": s.name, "GPA": s.gpa} for i, s in enumerate(sorted_students)]
+        st.table(ranking_data)
+
+#  GPA Statistics 
+elif menu == "Statistics":
+    st.subheader(" GPA Statistics")
+
+    if not students:
+        st.info("No GPA data available.")
+    else:
+        names = [s.name for s in students]
+        gpas = [s.gpa for s in students]
+
+        fig = px.bar(x=names, y=gpas, labels={"x": "Student", "y": "GPA"},
+                     title="Student GPA Comparison", color=gpas, color_continuous_scale="Blues")
+        st.plotly_chart(fig, use_container_width=True)
