@@ -1,14 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>✍️ New Post</h1>
-
+<h2>✍️ Create New Post</h2>
 <form method="POST">
-    <input type="text" name="title" placeholder="Title"><br>
-    <textarea name="content" placeholder="Write your post..." rows="8"></textarea><br>
+    <input type="text" name="title" placeholder="Title" required><br>
+    <textarea name="content" rows="8" placeholder="Write your post..." required></textarea><br>
     <button type="submit">Publish</button>
 </form>
-
-{% if error %}
-<p style="color:red;">{{ error }}</p>
-{% endif %}
 {% endblock %}
