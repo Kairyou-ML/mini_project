@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 
 # ==== APP CONFIG ====
-st.set_page_config(page_title="✅ To-Do List App", page_icon="📝", layout="centered")
+st.set_page_config(page_title="To-Do List App", page_icon="📝", layout="centered")
 st.title("✅ To-Do List App")
 st.write("A simple productivity app to manage your daily tasks.")
 
