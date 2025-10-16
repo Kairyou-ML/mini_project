@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block title %}Edit Note{% endblock %}
+{% block content %}
+<h3>Edit Note</h3>
+<form method="POST">
+  <div class="mb-3">
+    <input name="title" class="form-control" value="{{ note.title }}" required>
+  </div>
+  <div class="mb-3">
+    <textarea name="content" id="editor" class="form-control" rows="10">{{ note.content }}</textarea>
+  </div>
+  <button class="btn btn-primary">Update</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+</form>
+<script>
+  var simplemde = new SimpleMDE({ element: document.getElementById("editor") });
+</script>
+{% endblock %}

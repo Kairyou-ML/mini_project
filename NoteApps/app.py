@@ -1,76 +1,177 @@
-from flask import Flask, render_template, request, redirect, url_for
+import os
 import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_login import (
+    LoginManager, UserMixin, login_user, login_required,
+    logout_user, current_user
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 
+# Cấu hình
 app = Flask(__name__)
+app.secret_key = 'secretkey'
+DATABASE = 'notes.db'
 
-# Hàm tiện ích kết nối database 
-def get_db_connection():
-    conn = sqlite3.connect('notes.db')
+# Flask-Login 
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# User Model
+class User(UserMixin):
+    def __init__(self, id, username, password):
+        self.id = id
+        self.username = username
+        self.password = password
+
+# DB helper 
+def get_db():
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-# Tạo bảng nếu chưa có 
 def init_db():
-    conn = get_db_connection()
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(DATABASE) as conn:
+        with open('schema.sql', 'r') as f:
+            conn.executescript(f.read())
 
-# List
+# Login
+@login_manager.user_loader
+def load_user(user_id):
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    if user:
+        return User(user['id'], user['username'], user['password'])
+    return None
+
+@app.route('/initdb')
+def initdb():
+    init_db()
+    return "Database initialized!"
+
+#  Routes
 @app.route('/')
+@login_required
 def index():
-    conn = get_db_connection()
-    notes = conn.execute('SELECT * FROM notes').fetchall()
+    conn = get_db()
+    notes = conn.execute(
+        'SELECT * FROM notes WHERE user_id = ? ORDER BY created_at DESC',
+        (current_user.id,)
+    ).fetchall()
     conn.close()
     return render_template('index.html', notes=notes)
 
+# Register
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        conn = get_db()
+        try:
+            conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+            conn.commit()
+            flash('Đăng ký thành công! Đăng nhập ngay nhé.')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Tên đăng nhập đã tồn tại!')
+        finally:
+            conn.close()
+    return render_template('register.html')
+
+
+# Login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+        if user and check_password_hash(user['password'], password):
+            login_user(User(user['id'], user['username'], user['password']))
+            return redirect(url_for('index'))
+        flash('Sai tên đăng nhập hoặc mật khẩu!')
+    return render_template('login.html')
+
+# Logout
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 # Add
-@app.route('/add', methods=('GET', 'POST'))
-def add():
+@app.route('/create', methods=['GET', 'POST'])
+@login_required
+def create_note():
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-
-        conn = get_db_connection()
-        conn.execute('INSERT INTO notes (title, content) VALUES (?, ?)', (title, content))
+        conn = get_db()
+        conn.execute(
+            'INSERT INTO notes (title, content, user_id) VALUES (?, ?, ?)',
+            (title, content, current_user.id)
+        )
         conn.commit()
         conn.close()
+        flash('Ghi chú đã được lưu!')
         return redirect(url_for('index'))
-    return render_template('add.html')
+    return render_template('create_note.html')
+
+@app.route('/note/<int:note_id>')
+@login_required
+def note_detail(note_id):
+    conn = get_db()
+    note = conn.execute(
+        'SELECT * FROM notes WHERE id = ? AND user_id = ?',
+        (note_id, current_user.id)
+    ).fetchone()
+    conn.close()
+    if not note:
+        flash('Không tìm thấy ghi chú!')
+        return redirect(url_for('index'))
+    return render_template('note_detail.html', note=note)
 
 # Edit
-@app.route('/edit/<int:id>', methods=('GET', 'POST'))
-def edit(id):
-    conn = get_db_connection()
-    note = conn.execute('SELECT * FROM notes WHERE id = ?', (id,)).fetchone()
+@app.route('/edit/<int:note_id>', methods=['GET', 'POST'])
+@login_required
+def edit_note(note_id):
+    conn = get_db()
+    note = conn.execute(
+        'SELECT * FROM notes WHERE id = ? AND user_id = ?',
+        (note_id, current_user.id)
+    ).fetchone()
+    if not note:
+        flash('Không tìm thấy ghi chú!')
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-
-        conn.execute('UPDATE notes SET title = ?, content = ? WHERE id = ?', (title, content, id))
+        conn.execute(
+            'UPDATE notes SET title=?, content=? WHERE id=? AND user_id=?',
+            (title, content, note_id, current_user.id)
+        )
         conn.commit()
         conn.close()
+        flash('Cập nhật thành công!')
         return redirect(url_for('index'))
 
     conn.close()
-    return render_template('edit.html', note=note)
+    return render_template('edit_note.html', note=note)
 
-# Delete
-@app.route('/delete/<int:id>')
-def delete(id):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM notes WHERE id = ?', (id,))
+@app.route('/delete/<int:note_id>', methods=['POST'])
+@login_required
+def delete_note(note_id):
+    conn = get_db()
+    conn.execute('DELETE FROM notes WHERE id=? AND user_id=?', (note_id, current_user.id))
     conn.commit()
     conn.close()
+    flash('Đã xóa ghi chú!')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

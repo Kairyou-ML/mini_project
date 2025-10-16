@@ -1,22 +1,26 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Notes App</title>
-</head>
-<body>
-    <h1>📒 Danh sách ghi chú</h1>
-    <a href="{{ url_for('add') }}">+ Thêm ghi chú mới</a>
-    <ul>
-        {% for note in notes %}
-            <li>
-                <strong>{{ note.title }}</strong> <br>
-                {{ note.content }} <br>
-                <a href="{{ url_for('edit', id=note.id) }}">Sửa</a> |
-                <a href="{{ url_for('delete', id=note.id) }}">Xóa</a>
-            </li>
-        {% else %}
-            <p>Chưa có ghi chú nào.</p>
-        {% endfor %}
-    </ul>
-</body>
-</html>
+{% extends "layout.html" %}
+{% block title %}Your Notes{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Your Notes</h3>
+    <a href="{{ url_for('create_note') }}" class="btn btn-success">+ New Note</a>
+</div>
+
+{% if notes %}
+<div class="row">
+    {% for note in notes %}
+    <div class="col-md-4 mb-4">
+        <div class="card card-note shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ note.title }}</h5>
+                <p class="card-text text-truncate">{{ note.content[:100] }}...</p>
+                <a href="{{ url_for('note_detail', note_id=note.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p>No notes yet. <a href="{{ url_for('create_note') }}">Create one!</a></p>
+{% endif %}
+{% endblock %}
