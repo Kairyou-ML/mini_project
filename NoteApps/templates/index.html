@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notes App</title>
+</head>
+<body>
+    <h1>📒 Danh sách ghi chú</h1>
+    <a href="{{ url_for('add') }}">+ Thêm ghi chú mới</a>
+    <ul>
+        {% for note in notes %}
+            <li>
+                <strong>{{ note.title }}</strong> <br>
+                {{ note.content }} <br>
+                <a href="{{ url_for('edit', id=note.id) }}">Sửa</a> |
+                <a href="{{ url_for('delete', id=note.id) }}">Xóa</a>
+            </li>
+        {% else %}
+            <p>Chưa có ghi chú nào.</p>
+        {% endfor %}
+    </ul>
+</body>
+</html>

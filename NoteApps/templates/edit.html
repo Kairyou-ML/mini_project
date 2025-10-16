@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chỉnh sửa ghi chú</title>
+</head>
+<body>
+    <h1>🛠️ Sửa ghi chú</h1>
+    <form method="POST">
+        <label>Tiêu đề:</label><br>
+        <input type="text" name="title" value="{{ note.title }}" required><br><br>
+
+        <label>Nội dung:</label><br>
+        <textarea name="content" required>{{ note.content }}</textarea><br><br>
+
+        <button type="submit">Cập nhật</button>
+    </form>
+    <br>
+    <a href="{{ url_for('index') }}">← Quay lại</a>
+</body>
+</html>
