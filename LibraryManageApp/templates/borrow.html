@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>Borrow / Return: {{ book.title }}</h3>
+<p>Available: <strong>{{ book.quantity }}</strong></p>
+
+<form method="post" class="row g-3">
+  <div class="col-md-4">
+    <select name="action" class="form-select">
+      <option value="borrow">Borrow</option>
+      <option value="return">Return</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <input name="borrower" class="form-control" placeholder="Borrower name (optional)">
+  </div>
+  <div class="col-md-2">
+    <input name="qty" type="number" min="1" value="1" class="form-control">
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-primary">Submit</button>
+  </div>
+</form>
+{% endblock %}

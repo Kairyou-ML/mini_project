@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>Transactions History</h3>
+<table class="table table-sm">
+  <thead><tr><th>Time</th><th>Book</th><th>Action</th><th>Borrower</th><th>Qty</th></tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.created_at }}</td>
+      <td>{{ r.title }}</td>
+      <td>{{ r.action }}</td>
+      <td>{{ r.borrower_name or '-' }}</td>
+      <td>{{ r.qty }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">No transactions yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

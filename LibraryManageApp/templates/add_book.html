@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>Add Book</h3>
+<form method="post">
+  <div class="mb-3">
+    <input name="title" class="form-control" placeholder="Title" required>
+  </div>
+  <div class="mb-3">
+    <input name="author" class="form-control" placeholder="Author">
+  </div>
+  <div class="mb-3">
+    <input name="isbn" class="form-control" placeholder="ISBN">
+  </div>
+  <div class="mb-3">
+    <input name="quantity" type="number" min="0" value="1" class="form-control" required>
+  </div>
+  <button class="btn btn-success">Save</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
